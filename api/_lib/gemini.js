@@ -1,11 +1,25 @@
 const KEY = () => process.env.GEMINI_API_KEY;
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
+async function withRetry(fn, label, tries = 4) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); }
+    catch (e) {
+      last = e;
+      if (!/ 503| 429/.test(String(e.message))) throw e;
+      await new Promise(r => setTimeout(r, 4000 * (i + 1)));
+    }
+  }
+  throw last;
+}
+
 export async function generate(prompt, { json = false, model = 'gemini-3.6-flash' } = {}) {
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: json ? { responseMimeType: 'application/json', temperature: 0.1 } : { temperature: 0.3 },
   };
+  return withRetry(async () => {
   const r = await fetch(`${BASE}/models/${model}:generateContent?key=${KEY()}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
@@ -13,6 +27,7 @@ export async function generate(prompt, { json = false, model = 'gemini-3.6-flash
   const d = await r.json();
   const text = d.candidates?.[0]?.content?.parts?.map(p => p.text).join('') ?? '';
   return json ? JSON.parse(text) : text;
+  }, 'generate');
 }
 
 export async function embed(texts, taskType = 'RETRIEVAL_DOCUMENT') {
@@ -21,10 +36,12 @@ export async function embed(texts, taskType = 'RETRIEVAL_DOCUMENT') {
     content: { parts: [{ text: t }] },
     taskType,
   }));
+  return withRetry(async () => {
   const r = await fetch(`${BASE}/models/text-embedding-004:batchEmbedContents?key=${KEY()}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requests }),
   });
   if (!r.ok) throw new Error(`Gemini embed ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const d = await r.json();
   return d.embeddings.map(e => e.values);
+  }, 'embed');
 }
