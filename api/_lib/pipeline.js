@@ -58,6 +58,9 @@ export function stageStructured() {
     }
   }
   G(['repository', repo.repository.name], ['system', 'Dynamics 365 Sales'], 'integrates_with', RDOC);
+  for (const name of new Set([...repo.commits.map(c => c.author), ...repo.pull_requests.flatMap(p => [p.author, ...p.reviewers])])) {
+    if (!entities.some(e => e.type === 'person' && norm(e.name) === norm(name))) E('person', name, { org: 'Alpha Data', source: 'repo activity' });
+  }
   for (const c of repo.commits) G(P(c.author), ['repository', repo.repository.name], 'committed', { ...RDOC, excerpt: `${c.sha} ${c.message}` });
   for (const pr of repo.pull_requests) {
     G(P(pr.author), ['repository', repo.repository.name], 'opened_pr', { ...RDOC, excerpt: `PR #${pr.number}: ${pr.title}` });
@@ -131,8 +134,9 @@ export async function stageAssemble(bundle) {
     chunks.push(...part.chunks);
     edges.push(...part.edges);
     for (const ne of part.newEntities) {
-      const dup = entities.find(e => norm(e.name) === norm(ne.name) || (e.aliases || []).some(a => (ne.aliases || []).map(norm).includes(norm(a))));
+      const dup = entities.find(e => norm(e.name) === norm(ne.name) || (e.aliases || []).some(a => (ne.aliases || []).map(norm).includes(norm(a))) || (ne.aliases || []).some(a => norm(a) === norm(e.name)));
       if (!dup) entities.push(ne);
+      else dup.aliases = [...new Set([...(dup.aliases || []), ...(ne.aliases || [])])].filter(a => norm(a) !== norm(dup.name) && !/lead$|director$/i.test(a));
     }
   }
   // Entity resolution
@@ -151,13 +155,21 @@ export async function stageAssemble(bundle) {
     reasons.set(rkey(list[0].id, list[i].id), { method: 'name_or_alias_match', score: 1.0 });
   }
   const people = entities.filter(e => e.type === 'person');
+  const pnames = e => [e.name, ...(e.aliases || [])];
   for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
-    const a = tokens(people[i].name), b = tokens(people[j].name);
-    if (a[0] !== b[0] || a.length < 2 && b.length < 2) continue;
-    const lastA = a[a.length - 1], lastB = b[b.length - 1];
-    if ((lastA.length === 1 && lastB.startsWith(lastA)) || (lastB.length === 1 && lastA.startsWith(lastB))) {
-      union(people[i].id, people[j].id);
-      reasons.set(rkey(people[i].id, people[j].id), { method: 'initial_rule', score: 0.95 });
+    outer:
+    for (const na of pnames(people[i])) for (const nb of pnames(people[j])) {
+      const a = tokens(na), b = tokens(nb);
+      const firstA = a[0], firstB = b[0], lastA = a[a.length - 1], lastB = b[b.length - 1];
+      // "Ankit S." vs "Ankit Samriwal": same first name, one side's surname is an initial
+      const firstNameInitial = firstA === firstB && ((lastA.length === 1 && lastB.startsWith(lastA)) || (lastB.length === 1 && lastA.startsWith(lastB)));
+      // "A. Samriwal" vs "Ankit Samriwal": one side's first name is an initial, surnames equal
+      const initialFirst = lastA === lastB && lastA.length > 2 && ((firstA.length === 1 && firstB.startsWith(firstA)) || (firstB.length === 1 && firstA.startsWith(firstB)));
+      if (firstNameInitial || initialFirst) {
+        union(people[i].id, people[j].id);
+        reasons.set(rkey(people[i].id, people[j].id), { method: 'initial_rule', score: 0.95 });
+        break outer;
+      }
     }
   }
   // embedding similarity across remaining clusters
@@ -173,7 +185,9 @@ export async function stageAssemble(bundle) {
   for (let i = 0; i < reps.length; i++) for (let j = i + 1; j < reps.length; j++) {
     if (reps[i].type !== reps[j].type) continue;
     const score = cos(vecs[i], vecs[j]);
-    if (score >= 0.9) {
+    const digits = x => (norm(reps[x].name).match(/\d+/g) || []).join(',');
+    if (digits(i) !== digits(j)) continue;  // codes/versions/dates must match exactly (FR-201 != FR-205)
+    if (score >= 0.965) {
       union(reps[i].id, reps[j].id);
       reasons.set(rkey(reps[i].id, reps[j].id), { method: 'embedding_similarity', score: +score.toFixed(3) });
     }
