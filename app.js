@@ -23,11 +23,12 @@ document.querySelector('.tabs').addEventListener('click', e => {
 
 /* ---------- chat ---------- */
 const SUGGESTED = [
+  'Who designed the sync middleware?',
+  "What's the test coverage for data migration?",
+  'What did the last status report say?',
   'Who owns the duplicate-data risk?',
-  'What did we promise Falcon Retail in the proposal?',
-  'What depends on the falcon-crm-sync middleware?',
   'What happens if the change-freeze exemption fails?',
-  'Who is Ankit S. and what is he working on?',
+  'Who is Ankit S. and what has he worked on?',
 ];
 const chipsEl = $('#chips');
 for (const q of SUGGESTED) {

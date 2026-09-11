@@ -196,6 +196,18 @@ export async function stageAssemble(bundle) {
     }
     finalEntities.push({ ...canonical, aliases, permission_roles: perms });
   }
+  // Document entities + authorship edges, direct from ingestion metadata (no LLM)
+  for (const d of documents) {
+    if (d.kind === 'structured') continue;
+    finalEntities.push({ id: eid('document', d.title), name: d.title, type: 'document', aliases: [], attrs: { kind: d.kind, doc_id: d.id, date: d.doc_date, source_system: d.source_system }, origin: 'structured', permission_roles: d.permission_roles });
+  }
+  const byAnyName = new Map();
+  for (const e of finalEntities) for (const n of [e.name, ...(e.aliases || [])]) byAnyName.set(norm(n), e.id);
+  for (const d of documents) {
+    if (d.kind === 'structured' || !d.author || d.author === 'system export') continue;
+    const pid = byAnyName.get(norm(d.author));
+    if (pid) edges.push({ src: pid, dst: eid('document', d.title), relation: 'authored', confidence: 1.0, origin: 'direct', provenance: [{ doc_id: d.id, title: d.title, source: d.source_system, date: d.doc_date, excerpt: 'document author metadata' }], permission_roles: d.permission_roles });
+  }
   // repoint + dedupe edges
   const seen = new Map();
   for (const e of edges) {
