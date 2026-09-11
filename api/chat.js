@@ -4,7 +4,8 @@ import { loadGraph } from './_lib/graphstore.js';
 export const config = { maxDuration: 60 };
 const ROLES = ['exec', 'team', 'client'];
 const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-const cos = (x, y) => x.reduce((s, v, i) => s + v * y[i], 0) / (Math.hypot(...x) * Math.hypot(...y));
+const cos = (x, y) => x.length === y.length ? x.reduce((s, v, i) => s + v * y[i], 0) / ((Math.hypot(...x) * Math.hypot(...y)) || 1) : 0;
+const localEmbed = (text, dim) => { const v=Array(dim).fill(0); for(const w of norm(text).split(' ')){let h=2166136261;for(const c of w){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}v[Math.abs(h)%dim]+=1;}const n=Math.hypot(...v)||1;return v.map(x=>x/n); };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -18,7 +19,10 @@ export default async function handler(req, res) {
     const allowedChunks = g.chunks.filter(c => (c.permission_roles || []).includes(role));
 
     // 1. vector retrieval over role-filtered chunks
-    const [qVec] = await embed([question], 'RETRIEVAL_QUERY');
+    let qVec;
+    const dim = allowedChunks[0]?.embedding?.length || 256;
+    try { [qVec] = await embed([question], 'RETRIEVAL_QUERY'); if(qVec.length !== dim) qVec = localEmbed(question, dim); }
+    catch { qVec = localEmbed(question, dim); }
     const scored = allowedChunks.map(c => ({ c, s: cos(qVec, c.embedding) })).sort((a, b) => b.s - a.s);
     const hits = scored.slice(0, 8).filter(h => h.s > 0.55);
 

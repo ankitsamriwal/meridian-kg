@@ -13,11 +13,29 @@ function chunks(text, max = 1100) {
   if (buf) out.push(buf); return out.slice(0, 12);
 }
 
+function fallbackExtract(doc) {
+  const entities = [], relations = [], seen = new Map();
+  const add = (name, type='concept') => { name=String(name).trim().replace(/[.,;:]$/,''); if(name.length<2) return name; const k=norm(name); if(!seen.has(k)){seen.set(k,name);entities.push({name,type,aliases:[]});} return seen.get(k); };
+  const patterns = [
+    [/([A-Z][a-z]+(?: [A-Z][a-z]+){1,3})\s+(?:designed|architected)\s+(?:the\s+)?([^.;\n]+)/g,'person','concept','designed'],
+    [/([A-Z][a-z]+(?: [A-Z][a-z]+){1,3})\s+(?:owns|owned)\s+(?:risk\s+)?([^.;\n]+)/g,'person','risk','owns_risk'],
+    [/([A-Z][a-z]+(?: [A-Z][a-z]+){1,3})\s+(?:authored|wrote)\s+(?:the\s+)?([^.;\n]+)/g,'person','document','authored'],
+    [/(?:Requirement\s+)?([A-Z]{2,10}-?\d{1,6})\s+(?:says|requires|states)?\s*([^.;\n]+)/g,'requirement','concept','requires']
+  ];
+  for(const [re,st,dt,rel] of patterns) for(const m of doc.text.matchAll(re)){ const a=add(m[1],st), b=add(m[2],dt); if(a&&b) relations.push({src:a,dst:b,relation:rel,confidence:.82,evidence:m[0]}); }
+  for(const m of doc.text.matchAll(/\b(Project [A-Z][A-Za-z0-9 -]{2,40})/g)) add(m[1],'project');
+  for(const m of doc.text.matchAll(/\b(risk [A-Z]?-?\d{1,5})\b/gi)) add(m[1],'risk');
+  return {entities,relations};
+}
+function localEmbed(text, dim=256){ const v=Array(dim).fill(0); for(const w of norm(text).split(' ')){let h=2166136261;for(const c of w){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}v[Math.abs(h)%dim]+=1;} const n=Math.hypot(...v)||1;return v.map(x=>x/n); }
+
 async function extractDoc(doc) {
   const prompt = `Extract an enterprise knowledge graph from this user-supplied document. Use only facts stated in the text. Never guess names, dates, roles, numbers, authors, ownership, or relationships.
 Return JSON exactly as {"entities":[{"name":"...","type":"person|client|org|system|project|task|risk|requirement|repository|module|concept","aliases":[]}],"relations":[{"src":"exact entity name","dst":"exact entity name","relation":"short_snake_case","confidence":0.0,"evidence":"short exact support"}]}.
 Every relation endpoint must appear in entities. Keep distinct numbered requirements/tasks distinct. Document: ${doc.name}\n\n${doc.text.slice(0, 16000)}`;
-  const result = await generate(prompt, { json: true });
+  let result;
+  try { result = await generate(prompt, { json: true }); }
+  catch { result = fallbackExtract(doc); }
   return { doc, result };
 }
 
@@ -61,7 +79,9 @@ export default async function handler(req, res) {
       }
       for (const content of chunks(doc.text)) chunkRows.push({ document_id: docId, seq: chunkRows.length, content, permission_roles: ['exec','team','client'] });
     }
-    const vectors = await embed(chunkRows.map(c => c.content));
+    let vectors;
+    try { vectors = await embed(chunkRows.map(c => c.content)); }
+    catch { vectors = chunkRows.map(c => localEmbed(c.content)); }
     chunkRows.forEach((c, i) => c.embedding = vectors[i]);
     const seen = new Map();
     for (const e of edges) { const k = `${e.src}|${e.dst}|${e.relation}`; if (!seen.has(k)) seen.set(k, e); else seen.get(k).provenance.push(...e.provenance); }
