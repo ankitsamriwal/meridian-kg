@@ -2,7 +2,7 @@ import { loadGraph } from './_lib/graphstore.js';
 
 export default async function handler(req, res) {
   try {
-    const g = loadGraph();
+    const g = req.method === 'POST' && req.body?.graph ? req.body.graph : loadGraph();
     res.json({
       generated_at: g.generated_at,
       documents: g.documents.length,

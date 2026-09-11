@@ -57,7 +57,7 @@ async function ask() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, role: state.role }),
+      body: JSON.stringify({ question: q, role: state.role, ...(state.customGraph ? { graph: state.customGraph } : {}) }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'failed');
@@ -95,7 +95,7 @@ const TYPE_COLORS = {
 };
 async function loadGraph() {
   if (!state.graph) {
-    const r = await fetch('/api/graph?role=' + state.role);
+    const r = await fetch('/api/graph?role=' + state.role, state.customGraph ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({graph:state.customGraph}) } : undefined);
     state.graph = await r.json();
   }
   renderLegend();
@@ -146,7 +146,7 @@ const STAGE_DEFS = [
   ['06', 'App layer', 'GraphRAG chat with traceable paths + 3D explorer; roles enforced at query time', s => [s.entities_structured + ' direct / ' + s.entities_extracted + ' extracted', 'entity origins']],
 ];
 async function loadPipeline() {
-  const r = await fetch('/api/stats'); const s = await r.json();
+  const r = await fetch('/api/stats', state.customGraph ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({graph:state.customGraph}) } : undefined); const s = await r.json();
   $('#stages').innerHTML = STAGE_DEFS.map(([n, t, d, f]) => {
     const [v, lbl] = f(s);
     return `<div class="stage"><div class="n">STAGE ${n}</div><h4>${t}</h4><p>${d}</p><div class="count">${v}<span>${lbl}</span></div></div>`;
@@ -155,3 +155,48 @@ async function loadPipeline() {
     ? s.merges.map(m => `<div class="resrow"><span class="from">${esc(m.merged)}</span> &rarr; <span class="to">${esc(m.canonical)}</span><span class="how">${esc(m.method)} ${m.score}</span></div>`).join('')
     : '<p class="cardnote">No merges logged yet.</p>';
 }
+
+/* ---------- user corpus upload ---------- */
+state.customGraph = null;
+state.files = [];
+const DB_NAME = 'meridian-local', STORE = 'graphs';
+function dbOpen(){ return new Promise((ok,no)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); }); }
+async function dbPut(graph){ const db=await dbOpen(); return new Promise((ok,no)=>{ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(graph,'active'); tx.oncomplete=ok; tx.onerror=()=>no(tx.error); }); }
+async function dbGet(){ const db=await dbOpen(); return new Promise((ok,no)=>{ const r=db.transaction(STORE).objectStore(STORE).get('active'); r.onsuccess=()=>ok(r.result||null); r.onerror=()=>no(r.error); }); }
+async function dbClear(){ const db=await dbOpen(); return new Promise((ok,no)=>{ const r=db.transaction(STORE,'readwrite').objectStore(STORE).delete('active'); r.onsuccess=ok; r.onerror=()=>no(r.error); }); }
+function setCorpusLabel(){ $('#activecorpus').textContent = state.customGraph ? (state.customGraph.corpus_name || 'Your uploaded documents') : 'Falcon CRM demo'; }
+function goTab(name){ document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.tab===name)); document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.id==='tab-'+name)); }
+function loadScript(src){ return new Promise((ok,no)=>{ if(document.querySelector(`script[src="${src}"]`)) return ok(); const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s); }); }
+async function readFile(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(ext==='pdf'){
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+    const pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs'); pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+    const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise; let text=''; for(let i=1;i<=Math.min(pdf.numPages,80);i++){ const p=await pdf.getPage(i),c=await p.getTextContent(); text+='\n'+c.items.map(x=>x.str).join(' '); } return text;
+  }
+  if(ext==='docx'){
+    await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js'); return (await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value;
+  }
+  return await file.text();
+}
+function renderFiles(){ $('#filelist').innerHTML=state.files.map((f,i)=>`<div class="fileitem"><span class="fname">${esc(f.name)}</span><span class="fmeta">${(f.size/1024).toFixed(0)} KB</span><button data-rm="${i}" aria-label="Remove">&times;</button></div>`).join(''); $('#buildgraph').disabled=!state.files.length; }
+function addFiles(files){ for(const f of files) if(state.files.length<12 && !state.files.some(x=>x.name===f.name&&x.size===f.size)) state.files.push(f); renderFiles(); }
+$('#fileinput').addEventListener('change',e=>addFiles(e.target.files));
+$('#filelist').addEventListener('click',e=>{const i=e.target.dataset.rm;if(i!==undefined){state.files.splice(+i,1);renderFiles();}});
+const dz=$('#dropzone'); ['dragenter','dragover'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('drag')})); ['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('drag')})); dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+$('#buildgraph').addEventListener('click',async()=>{
+  const btn=$('#buildgraph'), status=$('#buildstatus'); btn.disabled=true; status.className='buildstatus';
+  try{
+    const documents=[]; let total=0;
+    for(let i=0;i<state.files.length;i++){ status.textContent=`Reading ${i+1} of ${state.files.length}: ${state.files[i].name}`; const text=(await readFile(state.files[i])).trim(); total+=text.length; documents.push({name:state.files[i].name,kind:(state.files[i].name.split('.').pop()||'document'),text}); }
+    if(total>120000) throw new Error('These files contain more than 120,000 characters. Split them into a smaller batch.');
+    status.textContent='Extracting entities and relationships, then building embeddings...';
+    const r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({documents})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'Build failed');
+    state.customGraph=d.graph; state.graph=null; await dbPut(d.graph); setCorpusLabel();
+    status.className='buildstatus ok'; status.textContent=`Ready: ${d.summary.documents} documents, ${d.summary.entities} entities, ${d.summary.edges} relationships. This is now the active graph.`;
+    goTab('chat'); addSystemNote(`Your uploaded corpus is active: ${d.summary.documents} documents, ${d.summary.entities} entities, ${d.summary.edges} relationships.`);
+  }catch(e){ status.className='buildstatus error'; status.textContent=e.message; }
+  btn.disabled=!state.files.length;
+});
+$('#usedemo').addEventListener('click',async()=>{ await dbClear(); state.customGraph=null; state.graph=null; setCorpusLabel(); $('#buildstatus').className='buildstatus'; $('#buildstatus').textContent='Falcon CRM demo restored.'; });
+dbGet().then(g=>{state.customGraph=g;setCorpusLabel();}).catch(()=>setCorpusLabel());

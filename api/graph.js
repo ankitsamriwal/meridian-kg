@@ -5,7 +5,7 @@ const ROLES = ['exec', 'team', 'client'];
 export default async function handler(req, res) {
   const role = ROLES.includes(req.query.role) ? req.query.role : 'team';
   try {
-    const g = loadGraph();
+    const g = req.method === 'POST' && req.body?.graph ? req.body.graph : loadGraph();
     const visible = g.entities.filter(e => (e.permission_roles || []).includes(role));
     const ids = new Set(visible.map(e => e.id));
     const links = g.edges.filter(e => ids.has(e.src) && ids.has(e.dst) && (e.permission_roles || []).includes(role));

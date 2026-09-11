@@ -8,10 +8,10 @@ const cos = (x, y) => x.reduce((s, v, i) => s + v * y[i], 0) / (Math.hypot(...x)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { question, role = 'team' } = req.body || {};
+  const { question, role = 'team', graph: suppliedGraph } = req.body || {};
   if (!question || !ROLES.includes(role)) return res.status(400).json({ error: 'question and valid role required' });
   try {
-    const g = loadGraph();
+    const g = suppliedGraph && Array.isArray(suppliedGraph.entities) && Array.isArray(suppliedGraph.edges) && Array.isArray(suppliedGraph.chunks) ? suppliedGraph : loadGraph();
     const visible = g.entities.filter(e => (e.permission_roles || []).includes(role));
     const nodeById = new Map(visible.map(e => [e.id, e]));
     const allowedEdges = g.edges.filter(e => (e.permission_roles || []).includes(role) && nodeById.has(e.src) && nodeById.has(e.dst));
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     const docs = g.documents.filter(d => docIds.includes(d.id) && (d.permission_roles || []).includes(role));
 
     // 4. synthesize grounded answer
-    const prompt = `You are Meridian, an enterprise knowledge graph assistant for a Dynamics 365 client engagement (fictional POC data).
+    const prompt = `You are Meridian, an enterprise knowledge graph assistant. The active graph may come from user-uploaded documents or the included demonstration corpus.
 Answer ONLY from the context below. If the context does not contain the answer, say what the graph does and does not know. Never invent facts.
 Every claim must trace to a source document or a graph relationship. Cite sources inline like [Source: <title>].
 The querier's access role is "${role}" - data not visible to this role was excluded BEFORE you saw it. If the question touches material this role cannot see (e.g. pricing for non-exec), say the information exists in the engagement record but is outside this role's access.
