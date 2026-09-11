@@ -12,7 +12,7 @@ export async function generate(prompt, { json = false } = {}) {
   });
   let last;
   for (const model of GEN_MODELS) {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       try {
         const r = await fetch(`${BASE}/models/${model}:generateContent?key=${KEY()}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body(model)),
@@ -26,7 +26,7 @@ export async function generate(prompt, { json = false } = {}) {
         const quota = / 429/.test(e.message), busy = / 503/.test(e.message), gone = / 404/.test(e.message);
         if (gone) break;            // next model
         if (quota) { break; }       // per-model daily quota: next model
-        if (busy) { await sleep(5000 * (i + 1)); continue; }
+        if (busy) { await sleep(4000 * (i + 1)); continue; }
         throw e;
       }
     }
@@ -37,7 +37,7 @@ export async function generate(prompt, { json = false } = {}) {
 export async function embed(texts, taskType = 'RETRIEVAL_DOCUMENT') {
   let last;
   for (const model of EMBED_MODELS) {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       try {
         const requests = texts.map(t => ({ model: `models/${model}`, content: { parts: [{ text: t }] }, taskType }));
         const r = await fetch(`${BASE}/models/${model}:batchEmbedContents?key=${KEY()}`, {
@@ -49,7 +49,7 @@ export async function embed(texts, taskType = 'RETRIEVAL_DOCUMENT') {
       } catch (e) {
         last = e;
         if (/ 404| 429/.test(e.message)) break;
-        if (/ 503/.test(e.message)) { await sleep(5000 * (i + 1)); continue; }
+        if (/ 503/.test(e.message)) { await sleep(4000 * (i + 1)); continue; }
         throw e;
       }
     }

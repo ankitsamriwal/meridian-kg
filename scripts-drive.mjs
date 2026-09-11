@@ -34,6 +34,9 @@ for (const doc of docs) {
   known.push(...part.newEntities);
   await new Promise(r => setTimeout(r, 15000));
 }
+const dims = new Set(extracted.flatMap(p => p.chunks.map(c => c.embedding.length)));
+if (dims.size > 1) { console.log('MIXED EMBED DIMS', [...dims]); process.exit(1); }
+console.log('embed dims consistent:', [...dims][0]);
 const graph = await post(`${BASE}/api/admin/run-pipeline?stage=assemble&secret=${SEC}`, { structured, extracted });
 if (graph.error) { console.log('ASSEMBLE FAIL', graph.error); process.exit(1); }
 console.log('assembled:', graph.entities.length, 'entities,', graph.edges.length, 'edges,', graph.chunks.length, 'chunks,', graph.resolution_log.length, 'merges');
