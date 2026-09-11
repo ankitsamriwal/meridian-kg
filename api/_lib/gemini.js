@@ -1,7 +1,7 @@
 const KEY = () => process.env.GEMINI_API_KEY;
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
-export async function generate(prompt, { json = false, model = 'gemini-2.5-flash' } = {}) {
+export async function generate(prompt, { json = false, model = 'gemini-3.6-flash' } = {}) {
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: json ? { responseMimeType: 'application/json', temperature: 0.1 } : { temperature: 0.3 },
