@@ -77,7 +77,7 @@ function renderAnswer(d) {
     flow.push(`<span class="pnode">${esc(nameOf(e.src))}</span><span class="pedge">${esc(e.relation)}${e.confidence < 1 ? ` <span class="pconf">${e.confidence.toFixed(2)}</span>` : ''}</span><span class="pnode">${esc(nameOf(e.dst))}</span>`);
   }
   return `
-    <div class="ans">${esc(d.answer).replace(/\[Source: ([^\]]+)\]/g, '<b>[Source: $1]</b>')}</div>
+    <div class="ans">${esc(d.answer).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\[Source: ([^\]]+)\]/g, '<b>[Source: $1]</b>').replace(/\n/g, '<br>')}</div>
     <details class="trace" open>
       <summary>Graph path &amp; sources</summary>
       <div class="pathflow">${flow.join('') || '<span class="pedge">no traversal path</span>'}</div>
