@@ -141,7 +141,7 @@ const STAGE_DEFS = [
   ['02', 'Ingestion & provenance', 'Per-source metadata preserved: author, date, source system, permission roles', s => [s.structured_docs + ' structured / ' + s.unstructured_docs + ' unstructured', 'split']],
   ['03', 'Extraction', 'Structured mapped directly (no LLM); unstructured via LLM with per-edge confidence', s => [s.chunks, 'chunks embedded']],
   ['04', 'Entity resolution', 'Rules + embedding similarity merge duplicates; every merge logged', s => [s.merges.length, 'merges']],
-  ['05', 'Graph storage', 'Postgres + pgvector: entities, edges, chunk embeddings, provenance on every row', s => [s.entities + ' / ' + s.edges, 'nodes / edges']],
+  ['05', 'Graph storage', 'Embedded graph store + vector index produced by the pipeline, provenance on every row (Neo4j/Supabase swap documented)', s => [s.entities + ' / ' + s.edges, 'nodes / edges']],
   ['06', 'App layer', 'GraphRAG chat with traceable paths + 3D explorer; roles enforced at query time', s => [s.entities_structured + ' direct / ' + s.entities_extracted + ' extracted', 'entity origins']],
 ];
 async function loadPipeline() {

@@ -1,6 +1,6 @@
 {
   "functions": {
     "api/admin/run-pipeline.js": { "maxDuration": 60, "includeFiles": "corpus/**" },
-    "api/chat.js": { "maxDuration": 60 }
+    "api/chat.js": { "maxDuration": 60, "includeFiles": "public/data/graph.json" }, "api/graph.js": { "includeFiles": "public/data/graph.json" }, "api/stats.js": { "includeFiles": "public/data/graph.json" }
   }
 }
