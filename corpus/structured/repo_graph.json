@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "source_system": "Git repository (falcon-crm-sync)",
+    "exported_at": "2026-09-08",
+    "permission_roles": ["exec", "team"],
+    "mapping": "direct"
+  },
+  "repository": {"id": "repo_sync", "name": "falcon-crm-sync", "url": "github.example/alphadata/falcon-crm-sync", "language": "TypeScript"},
+  "modules": [
+    {"id": "mod_sync_engine", "name": "sync-engine", "path": "src/sync-engine.ts", "imports": ["mod_mapping", "mod_d365_client"]},
+    {"id": "mod_mapping", "name": "mapping", "path": "src/mapping.ts", "imports": ["mod_schema"]},
+    {"id": "mod_d365_client", "name": "d365-client", "path": "src/d365-client.ts", "imports": ["mod_auth"]},
+    {"id": "mod_auth", "name": "auth", "path": "src/auth.ts", "imports": []},
+    {"id": "mod_schema", "name": "schema", "path": "src/schema.ts", "imports": []},
+    {"id": "mod_webhooks", "name": "webhooks", "path": "src/webhooks.ts", "imports": ["mod_sync_engine", "mod_d365_client"]}
+  ],
+  "commits": [
+    {"sha": "a1b2c3d", "author": "A. Samriwal", "date": "2026-09-02", "message": "Loyalty entity mapping scaffold", "files": ["src/mapping.ts", "src/schema.ts"]},
+    {"sha": "e4f5g6h", "author": "Rishabh Kapoor", "date": "2026-09-04", "message": "Dedupe pass for legacy contact import", "files": ["src/sync-engine.ts"]},
+    {"sha": "i7j8k9l", "author": "Daniel Osei", "date": "2026-09-05", "message": "OAuth client for D365 Web API", "files": ["src/d365-client.ts", "src/auth.ts"]},
+    {"sha": "m0n1o2p", "author": "A. Samriwal", "date": "2026-09-07", "message": "Webhook retries + dead-letter queue", "files": ["src/webhooks.ts"]}
+  ],
+  "pull_requests": [
+    {"id": "pr_14", "number": 14, "title": "Dedupe pass for legacy contact import", "author": "Rishabh Kapoor", "reviewers": ["Daniel Osei"], "merged": true, "merged_at": "2026-09-05"},
+    {"id": "pr_17", "number": 17, "title": "Webhook retries + dead-letter queue", "author": "A. Samriwal", "reviewers": ["Priya Nair"], "merged": true, "merged_at": "2026-09-08"}
+  ]
+}

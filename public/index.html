@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meridian - Enterprise Knowledge Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>Meridian</h1>
+      <p class="sub">Enterprise Knowledge Graph - Falcon CRM engagement POC</p>
+    </div>
+  </div>
+  <div class="rolepicker" id="rolepicker" title="Query-time access control">
+    <span class="rolelabel">Viewing as</span>
+    <div class="roles" id="roles">
+      <button data-role="exec">Exec sponsor</button>
+      <button data-role="team" class="on">Delivery team</button>
+      <button data-role="client">Client</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="chat" class="on">Ask</button>
+  <button data-tab="graph">Explorer</button>
+  <button data-tab="pipeline">Pipeline</button>
+</nav>
+
+<main>
+  <section id="tab-chat" class="tab on">
+    <div class="chips" id="chips"></div>
+    <div class="thread" id="thread">
+      <div class="empty">
+        <p class="q">Ask the graph anything about the engagement.</p>
+        <p class="hint">Every answer is assembled from a real graph traversal and shows its path and sources. Switch roles to see query-time access control change what the graph will say.</p>
+      </div>
+    </div>
+    <form class="askbar" id="askbar">
+      <input id="askinput" type="text" placeholder="Who owns the duplicate-data risk?" autocomplete="off">
+      <button type="submit" aria-label="Ask">&#8599;</button>
+    </form>
+  </section>
+
+  <section id="tab-graph" class="tab">
+    <div class="graphwrap">
+      <div id="graph3d"></div>
+      <div class="legend" id="legend"></div>
+      <div class="nodecard hidden" id="nodecard"></div>
+    </div>
+  </section>
+
+  <section id="tab-pipeline" class="tab">
+    <div class="stages" id="stages"></div>
+    <div class="card">
+      <h3>Entity resolution log</h3>
+      <p class="cardnote">Duplicates merged across sources - the step that keeps the graph from fragmenting.</p>
+      <div id="reslog" class="reslog"></div>
+    </div>
+    <div class="card">
+      <h3>Design principles honored</h3>
+      <ul class="principles">
+        <li><b>Structured sources mapped directly.</b> D365 entities, roster and the repo dependency graph go in deterministically - no LLM. Only docs, emails and notes go through extraction.</li>
+        <li><b>Entity resolution is not optional.</b> Rule-based + embedding-similarity merges run as a stage; every merge is logged above.</li>
+        <li><b>Provenance and permissions travel with the data.</b> Every node, edge and chunk carries its source document and the roles from its source system, enforced at query time via the role switcher.</li>
+        <li><b>Hybrid retrieval.</b> Vector search finds related chunks; graph traversal answers how things connect and via which path. The LLM only synthesizes from what retrieval returned.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/3d-force-graph@1.73.6/dist/3d-force-graph.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

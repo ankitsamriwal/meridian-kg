@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/admin/run-pipeline.js": { "maxDuration": 60, "includeFiles": "corpus/**" },
+    "api/chat.js": { "maxDuration": 60 }
+  }
+}

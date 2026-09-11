@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "source_system": "Dynamics 365 CE (export)",
+    "exported_at": "2026-08-30",
+    "permission_roles": ["exec", "team"],
+    "mapping": "direct"
+  },
+  "accounts": [
+    {"id": "acc_falcon", "name": "Falcon Retail Group", "industry": "Retail", "city": "Dubai", "website": "falconretail.example", "relationship": "client"}
+  ],
+  "contacts": [
+    {"id": "con_sara", "name": "Sara Ahmed", "title": "IT Director", "account": "acc_falcon", "email": "sara.ahmed@falconretail.example"},
+    {"id": "con_mohammed", "name": "Mohammed Al Farsi", "title": "Chief Financial Officer", "account": "acc_falcon", "email": "m.alfarsi@falconretail.example"},
+    {"id": "con_layla", "name": "Layla Haddad", "title": "Head of Loyalty", "account": "acc_falcon", "email": "layla.h@falconretail.example"}
+  ],
+  "opportunities": [
+    {"id": "opp_falcon_crm", "name": "Falcon CRM Implementation", "account": "acc_falcon", "stage": "05 - Won", "est_value_aed": 1450000, "close_date": "2026-07-15", "owner": "usr_ankit"}
+  ],
+  "projects": [
+    {"id": "prj_falcon", "name": "Project Falcon CRM", "opportunity": "opp_falcon_crm", "status": "In Delivery", "start": "2026-08-03", "go_live": "2026-11-30"}
+  ],
+  "team": [
+    {"id": "usr_ankit", "name": "Ankit Samriwal", "role": "Presales Lead", "org": "Alpha Data", "email": "ankit@alphadata.example"},
+    {"id": "usr_priya", "name": "Priya Nair", "role": "Project Manager", "org": "Alpha Data", "email": "priya.nair@alphadata.example"},
+    {"id": "usr_daniel", "name": "Daniel Osei", "role": "Solution Architect", "org": "Alpha Data", "email": "daniel.osei@alphadata.example"},
+    {"id": "usr_rishabh", "name": "Rishabh Kapoor", "role": "Data Migration Lead", "org": "Alpha Data", "email": "rishabh.k@alphadata.example"}
+  ],
+  "project_tasks": [
+    {"id": "task_env", "project": "prj_falcon", "name": "Environment provisioning (D365 Sales sandbox + prod)", "owner": "usr_daniel", "status": "Complete"},
+    {"id": "task_mig", "project": "prj_falcon", "name": "Legacy CRM data migration - 212k contact records", "owner": "usr_rishabh", "status": "In Progress"},
+    {"id": "task_ci", "project": "prj_falcon", "name": "Customer Insights unification rules", "owner": "usr_daniel", "status": "Not Started"},
+    {"id": "task_loyalty", "project": "prj_falcon", "name": "Loyalty program data model", "owner": "usr_ankit", "status": "In Progress"},
+    {"id": "task_sync", "project": "prj_falcon", "name": "falcon-crm-sync middleware build", "owner": "usr_rishabh", "status": "In Progress"}
+  ]
+}
