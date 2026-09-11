@@ -40,7 +40,7 @@
     <div class="uploadhero">
       <span class="eyebrow">YOUR CORPUS, NOT A PRE-TRAINED GRAPH</span>
       <h2>Turn your project files into a traceable knowledge graph.</h2>
-      <p>Drop PDF, Word, text, Markdown, CSV or JSON files. Meridian extracts only what your files say, builds the graph, and keeps the result in this browser.</p>
+      <p>Drop PDF, Word, text, Markdown, CSV or JSON files. Scanned PDFs work too - Meridian reads them with OCR, it just takes a little longer. Meridian extracts only what your files say, builds the graph, and keeps the result in this browser.</p>
       <label class="drop" id="dropzone">
         <input id="fileinput" type="file" multiple accept=".pdf,.docx,.txt,.md,.csv,.json,.html">
         <span class="dropicon">+</span><b>Choose documents</b><small>or drop them here - up to 12 files / 120,000 characters</small>
@@ -67,6 +67,20 @@
 
   <section id="tab-graph" class="tab">
     <div class="graphwrap">
+      <div class="graphguide">
+        <button class="gghead" id="ggtoggle" aria-expanded="true">How to read this graph <span class="ggchev" id="ggchev">&minus;</span></button>
+        <div class="ggbody" id="ggbody">
+          <div class="ggstats" id="graphstats"></div>
+          <ul class="gglist">
+            <li><b>Every dot is one thing</b> found in the documents - a person, system, project, risk, requirement. The color is its type (legend, bottom left).</li>
+            <li><b>Dot size = connections.</b> The bigger the dot, the more relationships it has. Big dots are the hubs everything else revolves around.</li>
+            <li><b>Every line is one relationship</b> the documents state - who designed what, what depends on what, who owns which risk.</li>
+            <li><b>Line thickness = confidence</b> between 0 and 1 - how sure the read was. Thin, faint lines are worth double-checking against their source.</li>
+            <li><b>Moving dots on a line</b> mean the AI read that relationship out of written text. A still line was mapped directly from structured data.</li>
+            <li><b>Tap any dot</b> for everything it connects to, with the source document behind each link.</li>
+          </ul>
+        </div>
+      </div>
       <div id="graph3d"></div>
       <div class="legend" id="legend"></div>
       <div class="nodecard hidden" id="nodecard"></div>
@@ -74,10 +88,14 @@
   </section>
 
   <section id="tab-pipeline" class="tab">
+    <div class="card">
+      <h3>How to read this page</h3>
+      <p class="cardnote">This is the assembly line that turned documents into the graph you explore and chat with. Each card below is one step, in order. The big number on each card is the live count from the currently active graph - the Falcon demo, or your own upload. Under it, one line on what that number actually means.</p>
+    </div>
     <div class="stages" id="stages"></div>
     <div class="card">
       <h3>Entity resolution log</h3>
-      <p class="cardnote">Duplicates merged across sources - the step that keeps the graph from fragmenting.</p>
+      <p class="cardnote">When the same thing shows up under two names - in the demo, "A. Samriwal" in a status note and "Ankit Samriwal" in the roster - Meridian keeps one, so the graph stays connected instead of splitting into lookalikes. Each row: duplicate name &rarr; the name kept, and how the match was decided (rule = exact logic, embedding = names that mean the same, score = match strength, 0 to 1).</p>
       <div id="reslog" class="reslog"></div>
     </div>
     <div class="card">

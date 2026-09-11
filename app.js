@@ -99,6 +99,7 @@ async function loadGraph() {
     state.graph = await r.json();
   }
   renderLegend();
+  $('#graphstats').innerHTML = `This view: <b>${state.graph.nodes.length}</b> things &middot; <b>${state.graph.links.length}</b> relationships`;
   const el = $('#graph3d');
   const deg = {};
   for (const l of state.graph.links) { deg[l.source] = (deg[l.source] || 0) + 1; deg[l.target] = (deg[l.target] || 0) + 1; }
@@ -118,9 +119,14 @@ async function loadGraph() {
     .onNodeClick(showNode)
     .width(el.clientWidth).height(el.clientHeight);
 }
+$('#ggtoggle').addEventListener('click', () => {
+  const closed = $('#ggbody').classList.toggle('closed');
+  $('#ggchev').textContent = closed ? '+' : '\u2212';
+  $('#ggtoggle').setAttribute('aria-expanded', String(!closed));
+});
 function renderLegend() {
   const types = [...new Set(state.graph.nodes.map(n => n.type))];
-  $('#legend').innerHTML = types.map(t => `<div><i style="background:${TYPE_COLORS[t] || '#9AA0AA'}"></i>${t}</div>`).join('');
+  $('#legend').innerHTML = '<div class="legendtitle">Color = type of thing</div>' + types.map(t => `<div><i style="background:${TYPE_COLORS[t] || '#9AA0AA'}"></i>${t}</div>`).join('');
 }
 function showNode(n) {
   const card = $('#nodecard');
@@ -130,6 +136,8 @@ function showNode(n) {
     <button class="close" onclick="document.getElementById('nodecard').classList.add('hidden')">&times;</button>
     <h4>${esc(n.name)}</h4>
     <div class="ntype">${esc(n.type)} &middot; ${n.origin === 'structured' ? 'direct-mapped' : 'LLM-extracted'}</div>
+    <div class="norigin">${n.origin === 'structured' ? 'Mapped straight from structured data (roster, database, repo) - not AI-guessed.' : 'Read out of written text by the AI - the source on each link below is where it came from.'}</div>
+    <div class="ncount">${rels.length} relationship${rels.length === 1 ? '' : 's'}</div>
     ${(n.aliases || []).length ? `<div class="naliases">also known as: ${n.aliases.map(esc).join(', ')}</div>` : ''}
     <ul>${rels.slice(0, 12).map(l => `<li><b>${esc(l.relation)}</b> &rarr; ${esc(other(l))}${l.provenance?.title ? `<br><span style="font-size:10px">source: ${esc(l.provenance.title)}</span>` : ''}</li>`).join('')}</ul>`;
   card.classList.remove('hidden');
@@ -138,18 +146,18 @@ window.addEventListener('resize', () => { if (state.fg) state.fg.width($('#graph
 
 /* ---------- pipeline ---------- */
 const STAGE_DEFS = [
-  ['01', 'Enterprise sources', 'D365 export, repo graph, roster, proposals, emails, notes, risk register', s => [s.documents, 'documents']],
-  ['02', 'Ingestion & provenance', 'Per-source metadata preserved: author, date, source system, permission roles', s => [s.structured_docs + ' structured / ' + s.unstructured_docs + ' unstructured', 'split']],
-  ['03', 'Extraction', 'Structured mapped directly (no LLM); unstructured via LLM with per-edge confidence', s => [s.chunks, 'chunks embedded']],
-  ['04', 'Entity resolution', 'Rules + embedding similarity merge duplicates; every merge logged', s => [s.merges.length, 'merges']],
-  ['05', 'Graph storage', 'Embedded graph store + vector index produced by the pipeline, provenance on every row (Neo4j/Supabase swap documented)', s => [s.entities + ' / ' + s.edges, 'nodes / edges']],
-  ['06', 'App layer', 'GraphRAG chat with traceable paths + 3D explorer; roles enforced at query time', s => [s.entities_structured + ' direct / ' + s.entities_extracted + ' extracted', 'entity origins']],
+  ['01', 'Enterprise sources', 'D365 export, repo graph, roster, proposals, emails, notes, risk register', s => [s.documents, 'documents'], 'how many files went into this graph'],
+  ['02', 'Ingestion & provenance', 'Per-source metadata preserved: author, date, source system, permission roles', s => [s.structured_docs + ' structured / ' + s.unstructured_docs + ' unstructured', 'split'], 'system data (structured) vs written documents (unstructured) - written text needs AI extraction, system data does not'],
+  ['03', 'Extraction', 'Structured mapped directly (no LLM); unstructured via LLM with per-edge confidence', s => [s.chunks, 'chunks embedded'], 'searchable passages the AI can quote from when it answers you'],
+  ['04', 'Entity resolution', 'Rules + embedding similarity merge duplicates; every merge logged', s => [s.merges.length, 'merges'], 'duplicate names folded into one - see the log below'],
+  ['05', 'Graph storage', 'Embedded graph store + vector index produced by the pipeline, provenance on every row (Neo4j/Supabase swap documented)', s => [s.entities + ' / ' + s.edges, 'nodes / edges'], 'things found (nodes) and the relationships between them (edges) - the dots and lines in Explorer'],
+  ['06', 'App layer', 'GraphRAG chat with traceable paths + 3D explorer; roles enforced at query time', s => [s.entities_structured + ' direct / ' + s.entities_extracted + ' extracted', 'entity origins'], 'nodes mapped from databases (direct) vs read out of text by the AI (extracted)'],
 ];
 async function loadPipeline() {
   const r = await fetch('/api/stats', state.customGraph ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({graph:state.customGraph}) } : undefined); const s = await r.json();
-  $('#stages').innerHTML = STAGE_DEFS.map(([n, t, d, f]) => {
+  $('#stages').innerHTML = STAGE_DEFS.map(([n, t, d, f, read]) => {
     const [v, lbl] = f(s);
-    return `<div class="stage"><div class="n">STAGE ${n}</div><h4>${t}</h4><p>${d}</p><div class="count">${v}<span>${lbl}</span></div></div>`;
+    return `<div class="stage"><div class="n">STAGE ${n}</div><h4>${t}</h4><p>${d}</p><div class="count">${v}<span>${lbl}</span></div><div class="read">${read}</div></div>`;
   }).join('');
   $('#reslog').innerHTML = s.merges.length
     ? s.merges.map(m => `<div class="resrow"><span class="from">${esc(m.merged)}</span> &rarr; <span class="to">${esc(m.canonical)}</span><span class="how">${esc(m.method)} ${m.score}</span></div>`).join('')
@@ -167,12 +175,32 @@ async function dbClear(){ const db=await dbOpen(); return new Promise((ok,no)=>{
 function setCorpusLabel(){ $('#activecorpus').textContent = state.customGraph ? (state.customGraph.corpus_name || 'Your uploaded documents') : 'Falcon CRM demo'; }
 function goTab(name){ document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.tab===name)); document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.id==='tab-'+name)); }
 function loadScript(src){ return new Promise((ok,no)=>{ if(document.querySelector(`script[src="${src}"]`)) return ok(); const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s); }); }
-async function readFile(file){
+async function ocrPdf(pdf, pages, onProgress){
+  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  const worker=await Tesseract.createWorker('eng');
+  const n=Math.min(pages,40); let text='';
+  for(let i=1;i<=n;i++){
+    if(onProgress) onProgress(`scanned PDF - reading page ${i} of ${n} with OCR...`);
+    const page=await pdf.getPage(i);
+    const vp=page.getViewport({scale:2});
+    const canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+    const {data}=await worker.recognize(canvas);
+    text+='\n'+data.text;
+  }
+  await worker.terminate();
+  return text;
+}
+async function readFile(file, onProgress){
   const ext=(file.name.split('.').pop()||'').toLowerCase();
   if(ext==='pdf'){
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
     const pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs'); pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
-    const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise; let text=''; for(let i=1;i<=Math.min(pdf.numPages,80);i++){ const p=await pdf.getPage(i),c=await p.getTextContent(); text+='\n'+c.items.map(x=>x.str).join(' '); } return text;
+    const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+    const pages=Math.min(pdf.numPages,80); let text='';
+    for(let i=1;i<=pages;i++){ const p=await pdf.getPage(i),c=await p.getTextContent(); text+='\n'+c.items.map(x=>x.str).join(' '); }
+    if(text.replace(/\s/g,'').length < pages*30) text=await ocrPdf(pdf,pages,onProgress);
+    return text;
   }
   if(ext==='docx'){
     await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js'); return (await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value;
@@ -188,7 +216,7 @@ $('#buildgraph').addEventListener('click',async()=>{
   const btn=$('#buildgraph'), status=$('#buildstatus'); btn.disabled=true; status.className='buildstatus';
   try{
     const documents=[]; let total=0;
-    for(let i=0;i<state.files.length;i++){ status.textContent=`Reading ${i+1} of ${state.files.length}: ${state.files[i].name}`; const text=(await readFile(state.files[i])).trim(); total+=text.length; documents.push({name:state.files[i].name,kind:(state.files[i].name.split('.').pop()||'document'),text}); }
+    for(let i=0;i<state.files.length;i++){ status.textContent=`Reading ${i+1} of ${state.files.length}: ${state.files[i].name}`; const text=(await readFile(state.files[i], m=>{ status.textContent=`Reading ${i+1} of ${state.files.length}: ${state.files[i].name} - ${m}`; })).trim(); total+=text.length; documents.push({name:state.files[i].name,kind:(state.files[i].name.split('.').pop()||'document'),text}); }
     if(total>120000) throw new Error('These files contain more than 120,000 characters. Split them into a smaller batch.');
     status.textContent='Extracting entities and relationships, then building embeddings...';
     const r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({documents})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'Build failed');
