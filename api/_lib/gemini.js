@@ -1,6 +1,6 @@
 const KEY = () => process.env.GEMINI_API_KEY;
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEN_MODELS = ['gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash'];
+const GEN_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.6-flash'];
 const EMBED_MODELS = ['gemini-embedding-001', 'gemini-embedding-2'];
 
 async function call(url, body, timeoutMs = 45000) {
