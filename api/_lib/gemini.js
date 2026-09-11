@@ -32,16 +32,22 @@ export async function generate(prompt, { json = false, model = 'gemini-3.6-flash
 
 export async function embed(texts, taskType = 'RETRIEVAL_DOCUMENT') {
   const requests = texts.map(t => ({
-    model: 'models/text-embedding-004',
+    model: 'models/gemini-embedding-001',
     content: { parts: [{ text: t }] },
     taskType,
   }));
   return withRetry(async () => {
-  const r = await fetch(`${BASE}/models/text-embedding-004:batchEmbedContents?key=${KEY()}`, {
+  const r = await fetch(`${BASE}/models/gemini-embedding-001:batchEmbedContents?key=${KEY()}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requests }),
   });
   if (!r.ok) throw new Error(`Gemini embed ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const d = await r.json();
   return d.embeddings.map(e => e.values);
   }, 'embed');
+}
+
+export async function listModels() {
+  const r = await fetch(`${BASE}/models?key=${KEY()}&pageSize=200`);
+  const d = await r.json();
+  return (d.models || []).map(m => m.name).filter(n => /embed|flash/i.test(n));
 }

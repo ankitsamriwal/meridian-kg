@@ -1,4 +1,5 @@
 import { stageStructured, stageExtract, stageAssemble, listDocs } from '../_lib/pipeline.js';
+import { listModels } from '../_lib/gemini.js';
 
 export const config = { maxDuration: 60 };
 
@@ -10,6 +11,7 @@ export default async function handler(req, res) {
   try {
     if (stage === 'structured') return res.json(stageStructured());
     if (stage === 'docs') return res.json({ docs: listDocs() });
+    if (stage === 'models') return res.json({ models: await listModels() });
     if (stage === 'extract') {
       const known = req.body?.knownEntities;
       if (req.method !== 'POST' || !Array.isArray(known)) return res.status(400).json({ error: 'POST {knownEntities:[...]} required' });
