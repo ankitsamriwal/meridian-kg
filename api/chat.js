@@ -73,7 +73,16 @@ ${hits.map(h => `--- from "${docs.find(d => d.id === h.c.document_id)?.title || 
 QUESTION: ${question}
 
 Answer concisely (2-6 sentences), verdict first.`;
-    const answer = await generate(prompt);
+    let answer;
+    try { answer = await generate(prompt); }
+    catch {
+      const qwords = new Set(norm(question).split(' ').filter(w => w.length > 3));
+      const ranked = pathEdges.map(e => { const sn=nodeById.get(e.src)?.name||e.src, dn=nodeById.get(e.dst)?.name||e.dst; const words=norm(`${sn} ${dn} ${e.relation}`).split(' '); return {e,sn,dn,score:words.filter(w=>qwords.has(w)).length}; }).sort((a,b)=>b.score-a.score);
+      const best = ranked[0];
+      if (best && best.score) { const title=best.e.provenance?.[0]?.title; answer = `The graph shows ${best.sn} ${best.e.relation.replace(/_/g,' ')} ${best.dn}.${title ? ` [Source: ${title}]` : ''}`; }
+      else if (hits[0]) { const title=docs.find(d=>d.id===hits[0].c.document_id)?.title||hits[0].c.document_id; answer=`The closest evidence in the active graph is: ${hits[0].c.content.slice(0,500)} [Source: ${title}]`; }
+      else answer='The active graph does not contain enough evidence to answer that question.';
+    }
     res.json({
       answer, role,
       path: {
